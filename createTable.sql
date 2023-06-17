@@ -4,7 +4,7 @@ CREATE TABLE forum (
   postDate     VARCHAR(255) NOT NULL,
   commId      VARCHAR(255) NOT NULL,
   parentPostId      VARCHAR(255) NOT NULL,
-  textContwnt      TEXT NOT NULL,
+  textContent      TEXT NOT NULL,
   mediaLinks      TEXT NOT NULL,
   eventId         VARCHAR(255) NOT NULL
 );
