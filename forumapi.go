@@ -25,14 +25,58 @@ type Post struct {
 	MediaLinks   string `json:"MediaLinks"`
 	EventId      string `json:"EventId"`
 }
+type PostRow struct {
+	PostId       int64
+	PosterId     string
+	CommId       string
+	ParentPostId string
+	TextContent  string
+	MediaLinks   string
+	EventId      string
+	PostDate     string
+}
 
+func getAllData(w http.ResponseWriter, r *http.Request) {
+	sqlStatement := `SELECT * FROM forum`
+	rows, err := db.Query(sqlStatement)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		panic(err)
+	}
+	var rowsData []PostRow
+	for rows.Next() {
+		var (
+			PostId       int64
+			PosterId     string
+			CommId       string
+			ParentPostId string
+			TextContent  string
+			MediaLinks   string
+			EventId      string
+			PostDate     string
+		)
+		if err := rows.Scan(&PostId, &PosterId, &CommId, &ParentPostId, &TextContent, &MediaLinks, &EventId, &PostDate); err != nil {
+			log.Fatal(err)
+		}
+		rowsData = append(rowsData, PostRow{PostId: PostId, PosterId: PosterId, CommId: CommId, ParentPostId: ParentPostId, TextContent: TextContent, MediaLinks: MediaLinks, EventId: EventId, PostDate: PostDate})
+	}
+	result, error := json.Marshal(rowsData)
+	if error != nil {
+		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
+	}
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	w.Write(result)
+}
 func homePage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome to the HomePage!")
 	fmt.Println("Endpoint Hit: homePage")
 }
 func addData(w http.ResponseWriter, r *http.Request) {
 	var decodedRequest Post
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	if r.Method == "OPTIONS" {
@@ -58,6 +102,7 @@ func addData(w http.ResponseWriter, r *http.Request) {
 func handleRequests() {
 	http.HandleFunc("/", homePage)
 	http.HandleFunc("/add", addData)
+	http.HandleFunc("/get", getAllData)
 	http.ListenAndServe(":1025", nil)
 }
 func connectDB() {
