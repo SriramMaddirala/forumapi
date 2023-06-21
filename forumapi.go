@@ -17,7 +17,6 @@ import (
 var db *sql.DB
 
 type Post struct {
-	PostId       int64  `json:"PostId"`
 	PosterId     string `json:"PosterId"`
 	CommId       string `json:"CommId"`
 	ParentPostId string `json:"ParentPostId"`
@@ -50,23 +49,22 @@ func getAllData(w http.ResponseWriter, r *http.Request) {
 			PosterId     string
 			CommId       string
 			ParentPostId string
-			TextContent  string
 			MediaLinks   string
+			TextContent  string
 			EventId      string
 			PostDate     string
 		)
-		if err := rows.Scan(&PostId, &PosterId, &CommId, &ParentPostId, &TextContent, &MediaLinks, &EventId, &PostDate); err != nil {
+		if err := rows.Scan(&PostId, &PosterId, &CommId, &ParentPostId, &MediaLinks, &TextContent, &EventId, &PostDate); err != nil {
 			log.Fatal(err)
 		}
-		rowsData = append(rowsData, PostRow{PostId: PostId, PosterId: PosterId, CommId: CommId, ParentPostId: ParentPostId, TextContent: TextContent, MediaLinks: MediaLinks, EventId: EventId, PostDate: PostDate})
+		rowsData = append(rowsData, PostRow{PostId: PostId, PosterId: PosterId, CommId: CommId, ParentPostId: ParentPostId, MediaLinks: MediaLinks, TextContent: TextContent, EventId: EventId, PostDate: PostDate})
 	}
 	result, error := json.Marshal(rowsData)
 	if error != nil {
 		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Write(result)
 }
@@ -76,7 +74,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 }
 func addData(w http.ResponseWriter, r *http.Request) {
 	var decodedRequest Post
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	if r.Method == "OPTIONS" {
@@ -91,7 +89,7 @@ func addData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sqlStatement := `INSERT INTO forum (PostId, PosterId, PostDate, CommId, ParentPostId, TextContent, MediaLinks, EventId) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	_, err = db.Exec(sqlStatement, decodedRequest.PostId, decodedRequest.PosterId, time.Now().UTC().String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, decodedRequest.MediaLinks, decodedRequest.EventId)
+	_, err = db.Exec(sqlStatement, 2, decodedRequest.PosterId, time.Now().UTC().String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, decodedRequest.MediaLinks, decodedRequest.EventId)
 	if err != nil {
 		fmt.Println("Issue with DB")
 		w.WriteHeader(http.StatusBadRequest)
