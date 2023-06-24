@@ -140,7 +140,9 @@ func connectDB() {
 	}
 	fmt.Println("Connected!")
 }
-func main() {
+func init() {
 	connectDB()
+}
+func main() {
 	handleRequests()
 }

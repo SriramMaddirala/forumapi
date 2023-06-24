@@ -8,3 +8,4 @@ CREATE TABLE forum (
   mediaLinks      TEXT NOT NULL,
   eventId         VARCHAR(255) NOT NULL
 );
+CREATE INDEX idxhash_posters on forum USING HASH (posterId);
