@@ -35,9 +35,47 @@ type PostRow struct {
 	PostDate     string
 }
 
-func getAllData(w http.ResponseWriter, r *http.Request) {
-	sqlStatement := `SELECT * FROM forum`
-	rows, err := db.Query(sqlStatement)
+func getPost(w http.ResponseWriter, r *http.Request) {
+	sqlStatement := `SELECT * FROM forum WHERE postid = $1`
+	QueryParams := r.URL.Query()
+	postid := QueryParams.Get("postid")
+	rows, err := db.Query(sqlStatement, postid)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		panic(err)
+	}
+	var rowsData []PostRow
+	for rows.Next() {
+		var (
+			PostId       int64
+			PosterId     string
+			CommId       string
+			ParentPostId string
+			MediaLinks   string
+			TextContent  string
+			EventId      string
+			PostDate     string
+		)
+		if err := rows.Scan(&PostId, &PosterId, &CommId, &ParentPostId, &MediaLinks, &TextContent, &EventId, &PostDate); err != nil {
+			log.Fatal(err)
+		}
+		rowsData = append(rowsData, PostRow{PostId: PostId, PosterId: PosterId, CommId: CommId, ParentPostId: ParentPostId, MediaLinks: MediaLinks, TextContent: TextContent, EventId: EventId, PostDate: PostDate})
+	}
+	result, error := json.Marshal(rowsData)
+	if error != nil {
+		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
+	}
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	w.Write(result)
+}
+
+func getPoster(w http.ResponseWriter, r *http.Request) {
+	QueryParams := r.URL.Query()
+	posterid := QueryParams.Get("posterid")
+	sqlStatement := `SELECT * FROM forum WHERE posterid = $1`
+	rows, err := db.Query(sqlStatement, posterid)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		panic(err)
@@ -100,7 +138,8 @@ func addData(w http.ResponseWriter, r *http.Request) {
 func handleRequests() {
 	http.HandleFunc("/", homePage)
 	http.HandleFunc("/add", addData)
-	http.HandleFunc("/get", getAllData)
+	http.HandleFunc("/getposter", getPoster)
+	http.HandleFunc("/getpost", getPost)
 	http.ListenAndServe(":1025", nil)
 }
 func connectDB() {
