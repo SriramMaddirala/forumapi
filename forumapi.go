@@ -44,7 +44,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		panic(err)
 	}
-	var rowsData []PostRow
+	var rowsData PostRow
 	for rows.Next() {
 		var (
 			PostId       int64
@@ -59,7 +59,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		if err := rows.Scan(&PostId, &PosterId, &CommId, &ParentPostId, &MediaLinks, &TextContent, &EventId, &PostDate); err != nil {
 			log.Fatal(err)
 		}
-		rowsData = append(rowsData, PostRow{PostId: PostId, PosterId: PosterId, CommId: CommId, ParentPostId: ParentPostId, MediaLinks: MediaLinks, TextContent: TextContent, EventId: EventId, PostDate: PostDate})
+		rowsData = PostRow{PostId: PostId, PosterId: PosterId, CommId: CommId, ParentPostId: ParentPostId, MediaLinks: MediaLinks, TextContent: TextContent, EventId: EventId, PostDate: PostDate}
 	}
 	result, error := json.Marshal(rowsData)
 	if error != nil {
