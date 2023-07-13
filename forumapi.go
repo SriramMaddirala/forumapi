@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -21,7 +23,6 @@ type Post struct {
 	CommId       string `json:"CommId"`
 	ParentPostId string `json:"ParentPostId"`
 	TextContent  string `json:"TextContent"`
-	MediaLinks   string `json:"MediaLinks"`
 	EventId      string `json:"EventId"`
 }
 type PostRow struct {
@@ -72,8 +73,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func getPoster(w http.ResponseWriter, r *http.Request) {
-	QueryParams := r.URL.Query()
-	posterid := QueryParams.Get("posterid")
+	posterid := r.URL.Query().Get("posterid")
 	sqlStatement := `SELECT * FROM forum WHERE posterid = $1`
 	rows, err := db.Query(sqlStatement, posterid)
 	if err != nil {
@@ -110,6 +110,32 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome to the HomePage!")
 	fmt.Println("Endpoint Hit: homePage")
 }
+func uploadBlob(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+		return
+	}
+	var contType string = strings.Split(r.Header.Get("Content-type"), "/")[2]
+	var filename string = "/Users/ram/Pictures/" + r.URL.Query().Get("medianame") + "." + contType
+	err = os.WriteFile(filename, body, 0644)
+	if err != nil {
+		http.Error(w, "Failed to save file to filesystem", http.StatusInternalServerError)
+		return
+	}
+	if contType != "webp" {
+		convertimg(filename)
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Blob uploaded successfully"))
+}
 func addData(w http.ResponseWriter, r *http.Request) {
 	var decodedRequest Post
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -127,7 +153,7 @@ func addData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sqlStatement := `INSERT INTO forum (PostId, PosterId, PostDate, CommId, ParentPostId, TextContent, MediaLinks, EventId) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	_, err = db.Exec(sqlStatement, 2, decodedRequest.PosterId, time.Now().UTC().String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, decodedRequest.MediaLinks, decodedRequest.EventId)
+	_, err = db.Exec(sqlStatement, 3, decodedRequest.PosterId, time.Now().UTC().String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, "fileURL", decodedRequest.EventId)
 	if err != nil {
 		fmt.Println("Issue with DB")
 		w.WriteHeader(http.StatusBadRequest)
@@ -140,6 +166,7 @@ func handleRequests() {
 	http.HandleFunc("/add", addData)
 	http.HandleFunc("/getposter", getPoster)
 	http.HandleFunc("/getpost", getPost)
+	http.HandleFunc("/upload", uploadBlob)
 	http.ListenAndServe(":1025", nil)
 }
 func connectDB() {
