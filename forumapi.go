@@ -152,8 +152,9 @@ func addData(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
+	time := time.Now().UTC()
 	sqlStatement := `INSERT INTO forum (PostId, PosterId, PostDate, CommId, ParentPostId, TextContent, MediaLinks, EventId) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	_, err = db.Exec(sqlStatement, 3, decodedRequest.PosterId, time.Now().UTC().String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, "fileURL", decodedRequest.EventId)
+	_, err = db.Exec(sqlStatement, generateSnowflake(time), decodedRequest.PosterId, time.String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, "fileURL", decodedRequest.EventId)
 	if err != nil {
 		fmt.Println("Issue with DB")
 		w.WriteHeader(http.StatusBadRequest)
