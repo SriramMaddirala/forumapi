@@ -3,8 +3,9 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -24,6 +25,7 @@ type Post struct {
 	ParentPostId string `json:"ParentPostId"`
 	TextContent  string `json:"TextContent"`
 	EventId      string `json:"EventId"`
+	MediaLinks   string `json:"MediaLinks"`
 }
 type PostRow struct {
 	PostId       int64
@@ -57,10 +59,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			EventId      string
 			PostDate     string
 		)
-		if err := rows.Scan(&PostId, &PosterId, &CommId, &ParentPostId, &MediaLinks, &TextContent, &EventId, &PostDate); err != nil {
+		if err := rows.Scan(&PostId, &PosterId, &PostDate, &CommId, &ParentPostId, &TextContent, &MediaLinks, &EventId); err != nil {
 			log.Fatal(err)
 		}
-		rowsData = PostRow{PostId: PostId, PosterId: PosterId, CommId: CommId, ParentPostId: ParentPostId, MediaLinks: MediaLinks, TextContent: TextContent, EventId: EventId, PostDate: PostDate}
+		rowsData = PostRow{PostId: PostId, PosterId: PosterId, PostDate: PostDate, CommId: CommId, ParentPostId: ParentPostId, TextContent: TextContent, MediaLinks: MediaLinks, EventId: EventId}
 	}
 	result, error := json.Marshal(rowsData)
 	if error != nil {
@@ -70,6 +72,43 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	w.Write(result)
+}
+
+func deletePost(w http.ResponseWriter, r *http.Request) {
+	deleteStatement := `DELETE FROM forum WHERE postid = $1`
+	selectStatement := `SELECT * FROM forum WHERE postid = $1`
+	QueryParams := r.URL.Query()
+	postid := QueryParams.Get("postid")
+	rows, err := db.Query(selectStatement, postid)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		panic(err)
+	}
+	for rows.Next() {
+		var (
+			PostId       int64
+			PosterId     string
+			CommId       string
+			ParentPostId string
+			MediaLinks   string
+			TextContent  string
+			EventId      string
+			PostDate     string
+		)
+		if err := rows.Scan(&PostId, &PosterId, &PostDate, &CommId, &ParentPostId, &TextContent, &MediaLinks, &EventId); err != nil {
+			log.Fatal(err)
+		}
+		os.Remove(MediaLinks)
+	}
+	_, err = db.Query(deleteStatement, postid)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		panic(err)
+	}
+	w.Header().Set("Access-Control-Allow-Methods", "DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func getPoster(w http.ResponseWriter, r *http.Request) {
@@ -92,10 +131,10 @@ func getPoster(w http.ResponseWriter, r *http.Request) {
 			EventId      string
 			PostDate     string
 		)
-		if err := rows.Scan(&PostId, &PosterId, &CommId, &ParentPostId, &MediaLinks, &TextContent, &EventId, &PostDate); err != nil {
+		if err := rows.Scan(&PostId, &PosterId, &PostDate, &CommId, &ParentPostId, &TextContent, &MediaLinks, &EventId); err != nil {
 			log.Fatal(err)
 		}
-		rowsData = append(rowsData, PostRow{PostId: PostId, PosterId: PosterId, CommId: CommId, ParentPostId: ParentPostId, MediaLinks: MediaLinks, TextContent: TextContent, EventId: EventId, PostDate: PostDate})
+		rowsData = append(rowsData, PostRow{PostId: PostId, PosterId: PosterId, PostDate: PostDate, CommId: CommId, ParentPostId: ParentPostId, TextContent: TextContent, MediaLinks: MediaLinks, EventId: EventId})
 	}
 	result, error := json.Marshal(rowsData)
 	if error != nil {
@@ -118,8 +157,9 @@ func uploadBlob(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
+	var ErrUnexpectedEOF = errors.New("unexpected EOF")
+	body, err := io.ReadAll(r.Body)
+	if err != nil && err != ErrUnexpectedEOF {
 		http.Error(w, "Failed to read request body", http.StatusInternalServerError)
 		return
 	}
@@ -133,8 +173,7 @@ func uploadBlob(w http.ResponseWriter, r *http.Request) {
 	if contType != "webp" {
 		convertimg(filename)
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Blob uploaded successfully"))
+	w.WriteHeader(http.StatusNoContent)
 }
 func addData(w http.ResponseWriter, r *http.Request) {
 	var decodedRequest Post
@@ -154,13 +193,24 @@ func addData(w http.ResponseWriter, r *http.Request) {
 	}
 	time := time.Now().UTC()
 	sqlStatement := `INSERT INTO forum (PostId, PosterId, PostDate, CommId, ParentPostId, TextContent, MediaLinks, EventId) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	_, err = db.Exec(sqlStatement, generateSnowflake(time), decodedRequest.PosterId, time.String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, "fileURL", decodedRequest.EventId)
+	_, err = db.Exec(sqlStatement, generateSnowflake(time), decodedRequest.PosterId, time.String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, "/Users/ram/Pictures/"+decodedRequest.MediaLinks+".webp", decodedRequest.EventId)
 	if err != nil {
 		fmt.Println("Issue with DB")
 		w.WriteHeader(http.StatusBadRequest)
 		panic(err)
 	}
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
+}
+func getFile(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	mediapath := r.URL.Query().Get("mediapath")
+	http.ServeFile(w, r, mediapath)
 }
 func handleRequests() {
 	http.HandleFunc("/", homePage)
@@ -168,6 +218,8 @@ func handleRequests() {
 	http.HandleFunc("/getposter", getPoster)
 	http.HandleFunc("/getpost", getPost)
 	http.HandleFunc("/upload", uploadBlob)
+	http.HandleFunc("/getfile", getFile)
+	http.HandleFunc("/deletepost", deletePost)
 	http.ListenAndServe(":1025", nil)
 }
 func connectDB() {
