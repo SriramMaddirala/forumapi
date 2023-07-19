@@ -5,7 +5,13 @@ CREATE TABLE forum (
   commId      VARCHAR(255) NOT NULL,
   parentPostId      VARCHAR(255) NOT NULL,
   textContent      TEXT NOT NULL,
-  mediaLinks      TEXT NOT NULL,
+  mediaLinks      VARCHAR(255) NOT NULL,
   eventId         VARCHAR(255) NOT NULL
 );
-CREATE INDEX idxhash_posters on forum USING HASH (posterId);
+CREATE TABLE users (
+  posterId      VARCHAR(255) NOT NULL PRIMARY KEY,
+  joinDate     VARCHAR(255) NOT NULL,
+  username    VARCHAR(255) NOT NULL,
+  pword      VARCHAR(255) NOT NULL,
+  email         VARCHAR(255) NOT NULL
+);

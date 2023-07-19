@@ -37,9 +37,18 @@ type PostRow struct {
 	EventId      string
 	PostDate     string
 }
+type User struct {
+	Username string `json:"Username"`
+	Password string `json:"Password"`
+	Email    string `json:"Email"`
+}
+type UserLogin struct {
+	Username string `json:"Username"`
+	Password string `json:"Password"`
+}
 
 func getPost(w http.ResponseWriter, r *http.Request) {
-	sqlStatement := `SELECT * FROM forum WHERE postid = $1`
+	sqlStatement := `SELECT * FROM forum WHERE postid = $1 LIMIT 1`
 	QueryParams := r.URL.Query()
 	postid := QueryParams.Get("postid")
 	rows, err := db.Query(sqlStatement, postid)
@@ -75,7 +84,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func deletePost(w http.ResponseWriter, r *http.Request) {
-	deleteStatement := `DELETE FROM forum WHERE postid = $1`
+	deleteStatement := `DELETE FROM forum WHERE postid = $1 LIMIT 1`
 	selectStatement := `SELECT * FROM forum WHERE postid = $1`
 	QueryParams := r.URL.Query()
 	postid := QueryParams.Get("postid")
@@ -212,6 +221,58 @@ func getFile(w http.ResponseWriter, r *http.Request) {
 	mediapath := r.URL.Query().Get("mediapath")
 	http.ServeFile(w, r, mediapath)
 }
+func signup(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	var decodedRequest User
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&decodedRequest)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		fmt.Println(err)
+		return
+	}
+	sqlStatement := `INSERT INTO users (PosterId, JoinDate, Username, Pword, Email) VALUES ($1, $2, $3, $4, $5)`
+	time := time.Now().UTC()
+	_, err = db.Exec(sqlStatement, generateSnowflake(time), time.String(), decodedRequest.Username, decodedRequest.Password, decodedRequest.Email)
+	if err != nil {
+		fmt.Println("Issue with DB")
+		w.WriteHeader(http.StatusBadRequest)
+		panic(err)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+func login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	var decodedRequest UserLogin
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&decodedRequest)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		fmt.Println(err)
+		return
+	}
+	sqlStatement := `SELECT * FROM users WHERE username = $1 LIMIT 1`
+	time := time.Now().UTC()
+	_, err = db.Exec(sqlStatement, generateSnowflake(time), time.String(), decodedRequest.Username, decodedRequest.Password)
+	if err != nil {
+		fmt.Println("Issue with DB")
+		w.WriteHeader(http.StatusBadRequest)
+		panic(err)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
 func handleRequests() {
 	http.HandleFunc("/", homePage)
 	http.HandleFunc("/add", addData)
@@ -220,6 +281,8 @@ func handleRequests() {
 	http.HandleFunc("/upload", uploadBlob)
 	http.HandleFunc("/getfile", getFile)
 	http.HandleFunc("/deletepost", deletePost)
+	http.HandleFunc("/signup", signup)
+	http.HandleFunc("/login", login)
 	http.ListenAndServe(":1025", nil)
 }
 func connectDB() {
