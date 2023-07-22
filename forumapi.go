@@ -46,6 +46,9 @@ type UserLogin struct {
 	Username string `json:"Username"`
 	Password string `json:"Password"`
 }
+type UserRow struct {
+	PosterId string
+}
 
 func getPost(w http.ResponseWriter, r *http.Request) {
 	sqlStatement := `SELECT * FROM forum WHERE postid = $1 LIMIT 1`
@@ -239,13 +242,18 @@ func signup(w http.ResponseWriter, r *http.Request) {
 	}
 	sqlStatement := `INSERT INTO users (PosterId, JoinDate, Username, Pword, Email) VALUES ($1, $2, $3, $4, $5)`
 	time := time.Now().UTC()
-	_, err = db.Exec(sqlStatement, generateSnowflake(time), time.String(), decodedRequest.Username, decodedRequest.Password, decodedRequest.Email)
+	var posterid int64 = generateSnowflake(time)
+	_, err = db.Exec(sqlStatement, posterid, time.String(), decodedRequest.Username, decodedRequest.Password, decodedRequest.Email)
 	if err != nil {
 		fmt.Println("Issue with DB")
 		w.WriteHeader(http.StatusBadRequest)
 		panic(err)
 	}
-	w.WriteHeader(http.StatusNoContent)
+	result, error := json.Marshal(UserRow{PosterId: strconv.Itoa(int(posterid))})
+	if error != nil {
+		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
+	}
+	w.Write(result)
 }
 func login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -264,14 +272,31 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sqlStatement := `SELECT * FROM users WHERE username = $1 LIMIT 1`
-	time := time.Now().UTC()
-	_, err = db.Exec(sqlStatement, generateSnowflake(time), time.String(), decodedRequest.Username, decodedRequest.Password)
+	rows, err := db.Query(sqlStatement, decodedRequest.Username)
 	if err != nil {
 		fmt.Println("Issue with DB")
 		w.WriteHeader(http.StatusBadRequest)
 		panic(err)
 	}
-	w.WriteHeader(http.StatusNoContent)
+	var rowsData UserRow
+	for rows.Next() {
+		var (
+			PosterId string
+			JoinDate string
+			Username string
+			Password string
+			Email    string
+		)
+		if err := rows.Scan(&PosterId, &JoinDate, &Username, &Password, &Email); err != nil {
+			log.Fatal(err)
+		}
+		rowsData = UserRow{PosterId: PosterId}
+	}
+	result, error := json.Marshal(rowsData)
+	if error != nil {
+		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
+	}
+	w.Write(result)
 }
 func handleRequests() {
 	http.HandleFunc("/", homePage)

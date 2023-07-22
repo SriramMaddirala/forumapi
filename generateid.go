@@ -19,7 +19,6 @@ func generateSnowflake(time time.Time) int64 {
 	sequenceBits = strings.Repeat("0", 12-utf8.RuneCountInString(sequenceBits)) + sequenceBits
 	sequenceNumber = sequenceNumber + 1
 	test := "0" + timeBits + sequenceBits + machineBits
-	fmt.Println(test)
 	snowflakeId, err := strconv.ParseInt(test, 2, 64)
 	if err != nil {
 		panic(err)
