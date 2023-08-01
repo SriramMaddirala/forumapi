@@ -51,7 +51,7 @@ type UserRow struct {
 }
 
 func getPost(w http.ResponseWriter, r *http.Request) {
-	sqlStatement := `SELECT * FROM forum WHERE postid = $1 LIMIT 1`
+	sqlStatement := `SELECT * FROM forum WHERE postid = $1`
 	QueryParams := r.URL.Query()
 	postid := QueryParams.Get("postid")
 	rows, err := db.Query(sqlStatement, postid)
@@ -87,7 +87,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func deletePost(w http.ResponseWriter, r *http.Request) {
-	deleteStatement := `DELETE FROM forum WHERE postid = $1 LIMIT 1`
+	deleteStatement := `DELETE FROM forum WHERE postid = $1`
 	selectStatement := `SELECT * FROM forum WHERE postid = $1`
 	QueryParams := r.URL.Query()
 	postid := QueryParams.Get("postid")
@@ -189,6 +189,7 @@ func uploadBlob(w http.ResponseWriter, r *http.Request) {
 }
 func addData(w http.ResponseWriter, r *http.Request) {
 	var decodedRequest Post
+	var media string
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
@@ -204,8 +205,11 @@ func addData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	time := time.Now().UTC()
+	if decodedRequest.MediaLinks != "" {
+		media = "/Users/ram/Pictures/" + decodedRequest.MediaLinks + ".webp"
+	}
 	sqlStatement := `INSERT INTO forum (PostId, PosterId, PostDate, CommId, ParentPostId, TextContent, MediaLinks, EventId) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	_, err = db.Exec(sqlStatement, generateSnowflake(time), decodedRequest.PosterId, time.String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, "/Users/ram/Pictures/"+decodedRequest.MediaLinks+".webp", decodedRequest.EventId)
+	_, err = db.Exec(sqlStatement, generateSnowflake(time), decodedRequest.PosterId, time.String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, media, decodedRequest.EventId)
 	if err != nil {
 		fmt.Println("Issue with DB")
 		w.WriteHeader(http.StatusBadRequest)
