@@ -51,10 +51,8 @@ type UserRow struct {
 }
 
 func getPost(w http.ResponseWriter, r *http.Request) {
-	sqlStatement := `SELECT * FROM forum WHERE postid = $1`
-	QueryParams := r.URL.Query()
-	postid := QueryParams.Get("postid")
-	rows, err := db.Query(sqlStatement, postid)
+	postid := r.URL.Query().Get("postid")
+	rows, err := db.Query(`SELECT * FROM forum WHERE postid = $1`, postid)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		panic(err)
@@ -87,11 +85,8 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func deletePost(w http.ResponseWriter, r *http.Request) {
-	deleteStatement := `DELETE FROM forum WHERE postid = $1`
-	selectStatement := `SELECT * FROM forum WHERE postid = $1`
-	QueryParams := r.URL.Query()
-	postid := QueryParams.Get("postid")
-	rows, err := db.Query(selectStatement, postid)
+	postid := r.URL.Query().Get("postid")
+	rows, err := db.Query(`SELECT * FROM forum WHERE postid = $1`, postid)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		panic(err)
@@ -112,7 +107,7 @@ func deletePost(w http.ResponseWriter, r *http.Request) {
 		}
 		os.Remove(MediaLinks)
 	}
-	_, err = db.Query(deleteStatement, postid)
+	_, err = db.Query(`DELETE FROM forum WHERE postid = $1`, postid)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		panic(err)
@@ -125,8 +120,7 @@ func deletePost(w http.ResponseWriter, r *http.Request) {
 
 func getPoster(w http.ResponseWriter, r *http.Request) {
 	posterid := r.URL.Query().Get("posterid")
-	sqlStatement := `SELECT * FROM forum WHERE posterid = $1`
-	rows, err := db.Query(sqlStatement, posterid)
+	rows, err := db.Query(`SELECT * FROM forum WHERE posterid = $1`, posterid)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		panic(err)
@@ -208,8 +202,7 @@ func addData(w http.ResponseWriter, r *http.Request) {
 	if decodedRequest.MediaLinks != "" {
 		media = "/Users/ram/Pictures/" + decodedRequest.MediaLinks + ".webp"
 	}
-	sqlStatement := `INSERT INTO forum (PostId, PosterId, PostDate, CommId, ParentPostId, TextContent, MediaLinks, EventId) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	_, err = db.Exec(sqlStatement, generateSnowflake(time), decodedRequest.PosterId, time.String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, media, decodedRequest.EventId)
+	_, err = db.Exec(`INSERT INTO forum (PostId, PosterId, PostDate, CommId, ParentPostId, TextContent, MediaLinks, EventId) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, generateSnowflake(time), decodedRequest.PosterId, time.String(), decodedRequest.CommId, decodedRequest.ParentPostId, decodedRequest.TextContent, media, decodedRequest.EventId)
 	if err != nil {
 		fmt.Println("Issue with DB")
 		w.WriteHeader(http.StatusBadRequest)
@@ -244,10 +237,9 @@ func signup(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
-	sqlStatement := `INSERT INTO users (PosterId, JoinDate, Username, Pword, Email) VALUES ($1, $2, $3, $4, $5)`
 	time := time.Now().UTC()
 	var posterid int64 = generateSnowflake(time)
-	_, err = db.Exec(sqlStatement, posterid, time.String(), decodedRequest.Username, decodedRequest.Password, decodedRequest.Email)
+	_, err = db.Exec(`INSERT INTO users (PosterId, JoinDate, Username, Pword, Email) VALUES ($1, $2, $3, $4, $5)`, posterid, time.String(), decodedRequest.Username, decodedRequest.Password, decodedRequest.Email)
 	if err != nil {
 		fmt.Println("Issue with DB")
 		w.WriteHeader(http.StatusBadRequest)
@@ -275,8 +267,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
-	sqlStatement := `SELECT * FROM users WHERE username = $1 LIMIT 1`
-	rows, err := db.Query(sqlStatement, decodedRequest.Username)
+	rows, err := db.Query(`SELECT * FROM users WHERE username = $1 LIMIT 1`, decodedRequest.Username)
 	if err != nil {
 		fmt.Println("Issue with DB")
 		w.WriteHeader(http.StatusBadRequest)
