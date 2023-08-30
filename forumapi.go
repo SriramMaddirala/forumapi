@@ -291,6 +291,10 @@ func login(w http.ResponseWriter, r *http.Request) {
 	if error != nil {
 		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
 	}
+	if len(result) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	w.Write(result)
 }
 func handleRequests() {
